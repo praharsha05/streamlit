@@ -3,7 +3,11 @@
 NOTHING secret lives in this file. Configure these environment variables on your host:
   RZP_WEBHOOK_SECRET   the secret you typed into Razorpay's webhook settings
   MAIL_USER            Gmail address that sends the emails
-  MAIL_APP_PASSWORD    Gmail App Password (16 characters)
+  MAIL_APP_PASSWORD    Gmail App Password (only for hosts that allow SMTP)
+  RESEND_API_KEY       Resend API key (HTTPS; needs a verified domain to email customers)
+  MAIL_FROM            e.g. Analyst Shubhi <onboarding@resend.dev> (testing) or hello@yourdomain.com
+  APPS_SCRIPT_URL      Google Apps Script web-app URL that sends the mail (use on Render free: SMTP is blocked)
+  APPS_SCRIPT_TOKEN    shared secret the script checks before sending
   PRODUCTS_JSON        JSON list of courses, e.g.
     [{"title":"PL SQL Project Guide",
       "ids":["pl_XXXXXXXX","plink_XXXXXXXX"],
@@ -19,6 +23,8 @@ import json
 import os
 import smtplib
 import sqlite3
+import urllib.error
+import urllib.request
 from email.message import EmailMessage
 
 from fastapi import FastAPI, HTTPException, Request
@@ -65,6 +71,35 @@ def send_mail(to: str, name: str, title: str, url: str):
             f"Tip: open the link while logged in to Google and save a copy to your Drive.\n"
             f"If it doesn’t open, just reply to this email and I’ll sort it out.\n\n"
             f"All the best,\nShubhanshi\nAnalyst Shubhi")
+    api_key = os.getenv("RESEND_API_KEY")
+    if api_key:  # HTTPS (port 443): works on Render free, where SMTP ports are blocked
+        payload = json.dumps({"from": os.environ["MAIL_FROM"], "to": [to],
+                              "subject": f"Your purchase: {title}", "text": body}).encode()
+        r = urllib.request.Request("https://api.resend.com/emails", data=payload, method="POST", headers={
+            "Authorization": f"Bearer {api_key}", "Content-Type": "application/json",
+            "User-Agent": "analyst-shubhi-webhook/1.0"})
+        try:
+            with urllib.request.urlopen(r, timeout=15) as resp:
+                print(f"[mail] sent via Resend to {to} (status {resp.status})")
+        except urllib.error.HTTPError as err:
+            print(f"[mail] Resend error {err.code}: {err.read().decode()[:300]}")
+            raise  # -> 500 -> Razorpay retries
+        return
+
+    script_url = os.getenv("APPS_SCRIPT_URL")
+    if script_url:  # HTTPS (port 443) -> Google Apps Script -> sends from your Gmail. Works on Render free.
+        payload = json.dumps({"token": os.environ["APPS_SCRIPT_TOKEN"], "to": to,
+                              "subject": f"Your purchase: {title}", "body": body}).encode()
+        r = urllib.request.Request(script_url, data=payload, method="POST",
+                                   headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(r, timeout=30) as resp:  # follows Google's redirect automatically
+            out = resp.read().decode().strip()
+        if out != "ok":
+            print(f"[mail] Apps Script replied: {out[:200]}")
+            raise RuntimeError("Apps Script did not confirm the send")  # -> 500 -> Razorpay retries
+        print(f"[mail] sent via Gmail (Apps Script) to {to}")
+        return
+
     user, pwd = os.getenv("MAIL_USER"), os.getenv("MAIL_APP_PASSWORD")
     if not (user and pwd):
         print(f"[DRY RUN] would email {to} for {title}")
