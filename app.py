@@ -28,8 +28,15 @@ TM = "https://topmate.io/analyst_shubhi/"
 # Razorpay payment links: when you create one, paste it here keyed by the Topmate id.
 # Anything not listed here keeps pointing at Topmate.
 RAZORPAY = {
-    # "2350025": "https://rzp.io/l/pl-sql-guide",
+    "2350025": "https://pages.razorpay.com/pl_TxaeUt4h07qPGm/view",  # PL SQL PROJECT GUIDE
 }
+# Optional: override/add links from Streamlit Secrets without editing code, e.g. in Secrets:
+#   [razorpay_links]
+#   "2047126" = "https://pages.razorpay.com/pl_XXXX/view"
+try:
+    RAZORPAY.update(dict(st.secrets["razorpay_links"]))
+except Exception:
+    pass  # no secrets configured -> use the dictionary above
 
 # (id, type, title, description, price, badge, meta)
 SERVICES = [
