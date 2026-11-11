@@ -2,7 +2,9 @@ import csv
 import os
 from datetime import datetime
 from html import escape as e
+from urllib.parse import quote
 
+import requests
 import streamlit as st
 
 st.set_page_config(page_title="Analyst Shubhi | Data Analyst & Career Mentor", page_icon="📊",
@@ -24,42 +26,29 @@ INSTAGRAM = "https://www.instagram.com/analyst_shubhi"
 STATS = [("4.9/5", "177 ratings"), ("7.1k+", "bookings"), ("135", "testimonials")]
 CLIENTS = ["Apple", "ServiceNow", "AT&T", "Infosys"]
 
-TM = "https://topmate.io/analyst_shubhi/"
-# Razorpay payment links: when you create one, paste it here keyed by the Topmate id.
-# Anything not listed here keeps pointing at Topmate.
-RAZORPAY = {
-    "2350025": "https://pages.razorpay.com/pl_TxaeUt4h07qPGm/view",  # PL SQL PROJECT GUIDE
-}
-# Optional: override/add links from Streamlit Secrets without editing code, e.g. in Secrets:
-#   [razorpay_links]
-#   "2047126" = "https://pages.razorpay.com/pl_XXXX/view"
-try:
-    RAZORPAY.update(dict(st.secrets["razorpay_links"]))
-except Exception:
-    pass  # no secrets configured -> use the dictionary above
+# ----- Catalog, slots and checkout come from the Google Sheet through the Apps Script back office.
+# Streamlit secrets needed:  APPS_SCRIPT_URL = "https://script.google.com/macros/s/.../exec"
+#                            APP_TOKEN       = "<same as the APP_TOKEN script property>"
+def api(action, **kw):
+    r = requests.post(st.secrets["APPS_SCRIPT_URL"], json={"token": st.secrets["APP_TOKEN"], "action": action, **kw},
+                      timeout=45)
+    r.raise_for_status()
+    data = r.json()
+    if isinstance(data, dict) and data.get("error"):
+        raise RuntimeError(data["error"])
+    return data
 
-# (id, type, title, description, price, badge, meta)
-SERVICES = [
-    ("2350025", "Digital Product", "PL SQL PROJECT GUIDE", "PL SQL PROJECT", 49, "", ""),
-    ("2047126", "Digital Product", "Full Python Notes", "Full Python Notes for Data analysis.", 99, "", ""),
-    ("2263649", "Digital Product", "AI Crash Course for Beginners", "Learn GenAI, LLMs, RAG & AI Agents", 99, "", ""),
-    ("2265773", "Digital Product", "Snowflake Complete Notes 🖇️", "Snowflake ❄️ Complete Notes 📝", 151, "Best Seller", ""),
-    ("1947599/pay", "Priority DM", "Ask me anything", "Priority DM with a reply within a day.", 199, "", "1 day reply"),
-    ("1951828", "1:1 Call", "Career guidance and Mentorship", "End-to-End Data Analyst Mentorship", 699, "Popular", "Video call · 30 mins"),
-    ("1952372", "Digital Product", "Data analyst ROADMAP for freshers", "A step-by-step roadmap to get started.", 20, "Popular", ""),
-    ("1953035", "1:1 Call", "Career Guidance + Queries (30-Min Strategy Call)", "A focused 1:1 session to clear your career confusion.", 899, "", "Video call · 60 mins"),
-    ("1947597", "1:1 Call", "Resume & Portfolio Building", "Build a resume and portfolio that gets shortlisted.", 999, "", "Video call · 60 mins"),
-    ("1953056", "1:1 Call", "Mock Interview", "Mock Interview For Data Analysis", 699, "", "Video call · 30 mins"),
-    ("2022373", "Digital Product", "POWER BI GUIDE", "Power BI Guide for beginners", 49, "", ""),
-    ("2061769", "Digital Product", "Data Analysis Crash Course (Beginner to Job-Ready)", "Data Analysis Crash Course: Beginner to Job-Ready", 99, "", ""),
-    ("2120294", "Digital Product", "DATA ENGINEERING NOTES", "All-in-one Data Engineering Notes to help you learn faster.", 151, "", ""),
-    ("2223853", "Digital Product", "Premium Resource 📊📈", "All-in-one Resources to help you learn faster ✅", 399, "", ""),
-    ("1949422", "Digital Product", "All Data Analytics Resource Bundle", "All-in-one Data Analyst resources to help you learn faster.", 99, "", ""),
-    ("1934277/pay", "Priority DM", "Direct Chat for Data Analytics Mentorship", "Get direct 1:1 guidance on Data Analytics.", 99, "", "2 days reply"),
-    ("1967027", "1:1 Call", "Fresher to Data Analyst – Career Strategy Call", "Career strategy for freshers moving into analytics.", 899, "", "Video call · 60 mins"),
-    ("1954920", "Digital Product", "Excel shortcuts", "Excel shortcuts cheat sheet.", 20, "", ""),
-    ("1967014", "1:1 Call", "Data Analyst Resume Review + Improvement", "Detailed review and improvement of your resume.", 899, "", "Video call · 60 mins"),
-]
+
+@st.cache_data(ttl=300, show_spinner=False)
+def load_catalog():
+    return api("catalog")
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def load_slots(course_id):
+    return api("slots", course_id=course_id)
+
+
 FILTERS = ["All Services", "1:1 Call", "Priority DM", "Digital Product"]
 
 ABOUT = """Hi, I’m Shubhanshi, a Data Analyst with 5+ years of industry experience working with global clients like Apple, ServiceNow, AT&T and Infosys. I specialize in data analysis, dashboards, reporting, and business insights using tools like SQL, Power BI, Excel, and Snowflake. Over the years, I’ve worked on real client projects, partner analytics, and business reporting solutions that helped teams make better data-driven decisions."""
@@ -172,8 +161,119 @@ details p{color:var(--mut);margin:12px 0 0;font-size:16px}
 [data-testid="stForm"] button{border-radius:999px;background:var(--btn);color:var(--btnt);border:0;font-weight:600}
 @media(max-width:900px){.hero,.two{grid-template-columns:1fr;gap:32px}.g3{grid-template-columns:1fr 1fr}.cols{column-count:2}.nav{display:none}.sec{padding:56px 0}.portrait{margin:0 auto}}
 @media(max-width:600px){.g3{grid-template-columns:1fr}.cols{column-count:1}}
+.st-key-panel{width:min(640px,calc(100% - 32px));margin:8px auto 64px;padding:28px 28px 32px;background:var(--card);border:1px solid var(--line);border-radius:22px}
 </style>
 """)
+
+def footer():
+    html(f"""
+    <div class="ft" style="margin-top:80px"><div class="w"><div class="fb">
+    <span>© {datetime.now().year} {e(NAME)}. All rights reserved.</span>
+    <span><a href="{INSTAGRAM}" target="_blank">Instagram</a><a href="#">Privacy Policy</a><a href="#">Terms</a><a href="#">Refund Policy</a></span>
+    </div></div></div>
+    """)
+
+
+def mini_header():
+    html(f'<div class="w"><div class="hd"><a class="logo" href="/" target="_self">{e(NAME)}</a>'
+         f'<a class="btn sm o" href="/" target="_self">← Back to site</a></div></div>')
+
+
+def checkout_view(course_id):
+    mini_header()
+    with st.container(key="panel"):
+        try:
+            c = next((x for x in load_catalog() if x["id"] == course_id), None)
+        except Exception:
+            st.error("Couldn’t load this item. Please try again in a minute.")
+            return
+        if not c:
+            st.warning("That item isn’t available.")
+            return
+        st.subheader(c["title"])
+        st.write(c["description"])
+        st.markdown(f"**₹{c['price']:g}**")
+        name = st.text_input("Your name")
+        email = st.text_input("Email", help="Your access link or booking confirmation is sent here.")
+        slot, question = "", ""
+        if c["type"] == "1:1 Call":
+            try:
+                slots = load_slots(c["id"])["slots"]
+            except Exception:
+                slots = []
+            if not slots:
+                st.info("No slots are open right now. Please check back soon.")
+                return
+            days = dict(sorted({s_["date"]: s_["day"] for s_ in slots}.items()))
+            day = st.selectbox("Day", list(days), format_func=days.get)
+            opts = {s_["id"]: s_["time"] for s_ in slots if s_["date"] == day}
+            slot = st.radio("Time (IST)", list(opts), format_func=opts.get, horizontal=True)
+            st.caption(f"{c.get('duration_min') or 30}-minute video call. You can reschedule from your confirmation email.")
+        elif c["type"] == "Priority DM":
+            question = st.text_area("Your question", max_chars=240)
+        if st.button(f"Continue to payment · ₹{c['price']:g}", type="primary", use_container_width=True):
+            if not name.strip() or "@" not in email:
+                st.error("Please enter your name and a valid email.")
+            else:
+                with st.spinner("Creating your secure payment…"):
+                    try:
+                        st.session_state["pay_url"] = api("checkout", course_id=c["id"], name=name, email=email,
+                                                          slot=slot, question=question)["url"]
+                    except Exception as ex:
+                        st.session_state.pop("pay_url", None)
+                        st.error(str(ex))
+        if st.session_state.get("pay_url"):
+            st.success("Ready! Complete your payment on Razorpay.")
+            st.link_button("Pay securely on Razorpay →", st.session_state["pay_url"], use_container_width=True)
+            if slot:
+                st.caption("Your slot is held for a few minutes while you pay.")
+
+
+def reschedule_view(booking_id, rt):
+    mini_header()
+    with st.container(key="panel"):
+        try:
+            v = api("booking", booking_id=booking_id, rt=rt)
+        except Exception as ex:
+            st.error(str(ex))
+            return
+        st.subheader("Reschedule your call")
+        st.write(f"**{v['title']}**  \nCurrently: {v['when']}")
+        if not v["can"]:
+            st.info(v["reason"])
+            return
+        slots = v["slots"]
+        if not slots:
+            st.info("No other slots are open right now. Please reply to your booking email.")
+            return
+        days = dict(sorted({s_["date"]: s_["day"] for s_ in slots}.items()))
+        day = st.selectbox("New day", list(days), format_func=days.get)
+        opts = {s_["id"]: s_["time"] for s_ in slots if s_["date"] == day}
+        slot = st.radio("New time (IST)", list(opts), format_func=opts.get, horizontal=True)
+        st.caption(f"{v['left']} reschedule(s) left.")
+        if st.button("Confirm new time", type="primary", use_container_width=True):
+            try:
+                res = api("reschedule", booking_id=booking_id, rt=rt, slot=slot)
+                st.success(f"Done! Your call is now {res['when']}. The calendar invite has been updated.")
+            except Exception as ex:
+                st.error(str(ex))
+
+
+def paid_view():
+    mini_header()
+    with st.container(key="panel"):
+        st.subheader("Payment received 🎉")
+        st.write("Thank you! Your email is on its way: a download link, or your booking confirmation with the "
+                 "meeting link. It usually arrives within a minute or two. Check your Spam folder if you don’t see it.")
+
+
+_qp = st.query_params
+if _qp.get("buy"):
+    checkout_view(_qp["buy"]); footer(); st.stop()
+if _qp.get("reschedule"):
+    reschedule_view(_qp["reschedule"], _qp.get("rt", "")); footer(); st.stop()
+if _qp.get("paid"):
+    paid_view(); footer(); st.stop()
 
 # ================================================================ HEADER+HERO
 stats = "".join(f"<div><b>{a}</b><span>{b}</span></div>" for a, b in STATS)
@@ -223,17 +323,24 @@ with st.container(key="filterbar"):
 choice = st.session_state.cat
 
 
-def card(sid, typ, title, desc, price, badge, meta):
-    link = RAZORPAY.get(sid, TM + sid)
-    label = {"Digital Product": "Get it now", "1:1 Call": "Book a call", "Priority DM": "Send a message"}[typ]
-    b = f'<span class="badge">{badge}</span>' if badge else ""
-    m = f"{typ} · {meta}" if meta else typ
-    return (f'<div class="card svc"><div class="top"><span>{e(m)}</span>{b}</div>'
-            f'<h3>{e(title)}</h3><p>{e(desc)}</p><div class="price">₹{price}</div>'
-            f'<a class="btn" href="{link}" target="_blank" rel="noopener">{label}</a></div>')
+LABEL = {"Digital Product": "Get it now", "1:1 Call": "Book a slot", "Priority DM": "Ask your question"}
 
 
-cards = "".join(card(*s) for s in SERVICES if choice == "All Services" or s[1] == choice)
+def card(c):
+    badge = f'<span class="badge">{e(c["badge"])}</span>' if c.get("badge") else ""
+    extra = c.get("meta") or (f'{c["duration_min"]} mins' if c.get("duration_min") else "")
+    kind = f'{c["type"]} · {extra}' if extra else c["type"]
+    return (f'<div class="card svc"><div class="top"><span>{e(kind)}</span>{badge}</div>'
+            f'<h3>{e(c["title"])}</h3><p>{e(c["description"])}</p><div class="price">₹{c["price"]:g}</div>'
+            f'<a class="btn" href="?buy={quote(c["id"])}" target="_self">{LABEL.get(c["type"], "Buy now")}</a></div>')
+
+
+try:
+    CATALOG = load_catalog()
+except Exception:
+    CATALOG = []
+    st.error("The catalog could not be loaded right now. Please refresh in a minute.")
+cards = "".join(card(c) for c in CATALOG if choice == "All Services" or c["type"] == choice)
 html(f'<div class="alt" style="padding:12px 0 84px"><div class="w"><div class="g3">{cards}</div></div></div>')
 
 # =============================================================== TESTIMONIALS
@@ -273,9 +380,4 @@ with st.form("newsletter", clear_on_submit=True):
             st.error("Enter a valid email address.")
 
 # ===================================================================== FOOTER
-html(f"""
-<div class="ft" style="margin-top:80px"><div class="w"><div class="fb">
-<span>© {datetime.now().year} {e(NAME)}. All rights reserved.</span>
-<span><a href="{INSTAGRAM}" target="_blank">Instagram</a><a href="#">Privacy Policy</a><a href="#">Terms</a><a href="#">Refund Policy</a></span>
-</div></div></div>
-""")
+footer()
