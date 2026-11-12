@@ -162,6 +162,16 @@ details p{color:var(--mut);margin:12px 0 0;font-size:16px}
 @media(max-width:900px){.hero,.two{grid-template-columns:1fr;gap:32px}.g3{grid-template-columns:1fr 1fr}.cols{column-count:2}.nav{display:none}.sec{padding:56px 0}.portrait{margin:0 auto}}
 @media(max-width:600px){.g3{grid-template-columns:1fr}.cols{column-count:1}}
 .st-key-panel{width:min(640px,calc(100% - 32px));margin:8px auto 64px;padding:28px 28px 32px;background:var(--card);border:1px solid var(--line);border-radius:22px}
+.st-key-panel [data-testid="stVerticalBlock"]{gap:1.15rem!important}
+.st-key-panel p{font-size:15px;margin:0;line-height:1.5}
+.st-key-panel [data-testid="stWidgetLabel"] p,.st-key-panel label p{font-size:14px!important;font-weight:600;margin:0!important;color:var(--ink)}
+.st-key-panel .tag{margin:0 0 2px;font-size:13.5px;color:var(--mut)}
+.ck-title{font-size:26px;font-weight:800;line-height:1.2;letter-spacing:-.02em;margin:0 0 6px;color:var(--ink)}
+.ck-desc{color:var(--mut);font-size:15.5px;line-height:1.5;margin:0 0 12px}
+.ck-price{font-size:24px;font-weight:800;color:var(--ink)}
+.ck-hr{border:0;border-top:1px solid var(--line);margin:16px 0 0}
+.ck-sum{background:var(--alt);border:1px solid var(--line);border-radius:14px;padding:12px 16px;font-size:15px;line-height:1.6;color:var(--ink)}
+.ck-sum span{color:var(--mut);font-size:13.5px}
 </style>
 """)
 
@@ -179,6 +189,32 @@ def mini_header():
          f'<a class="btn sm o" href="/" target="_self">← Back to site</a></div></div>')
 
 
+def pick_time(label, opts, key):
+    """Time chips: st.pills on recent Streamlit, a radio as fallback."""
+    ids = list(opts)
+    if hasattr(st, "pills"):
+        return st.pills(label, ids, format_func=opts.get, selection_mode="single", default=ids[0], key=key)
+    return st.radio(label, ids, format_func=opts.get, horizontal=True, key=key)
+
+
+def course_head(c):
+    extra = c.get("meta") or (f'{c["duration_min"]} mins' if c.get("duration_min") else "")
+    kind = f'{c["type"]} · {extra}' if extra else c["type"]
+    html(f'''<div class="tag">{e(kind)}</div>
+    <div class="ck-title">{e(c["title"])}</div>
+    <div class="ck-desc">{e(c["description"])}</div>
+    <div class="ck-price">₹{c["price"]:g}</div>
+    <hr class="ck-hr">''')
+
+
+def day_and_time(slots, day_label, time_label, key):
+    days = dict(sorted({s_["date"]: s_["day"] for s_ in slots}.items()))
+    day = st.selectbox(day_label, list(days), format_func=days.get, key=f"{key}_day")
+    opts = {s_["id"]: s_["time"] for s_ in slots if s_["date"] == day}
+    slot = pick_time(time_label, opts, key=f"{key}_time_{day}") or ""
+    return days[day], opts.get(slot, ""), slot
+
+
 def checkout_view(course_id):
     mini_header()
     with st.container(key="panel"):
@@ -190,11 +226,10 @@ def checkout_view(course_id):
         if not c:
             st.warning("That item isn’t available.")
             return
-        st.subheader(c["title"])
-        st.write(c["description"])
-        st.markdown(f"**₹{c['price']:g}**")
-        name = st.text_input("Your name")
-        email = st.text_input("Email", help="Your access link or booking confirmation is sent here.")
+        course_head(c)
+        name = st.text_input("Your name", placeholder="Full name")
+        email = st.text_input("Email", placeholder="you@example.com",
+                              help="Your access link or booking confirmation is sent here.")
         slot, question = "", ""
         if c["type"] == "1:1 Call":
             try:
@@ -204,16 +239,17 @@ def checkout_view(course_id):
             if not slots:
                 st.info("No slots are open right now. Please check back soon.")
                 return
-            days = dict(sorted({s_["date"]: s_["day"] for s_ in slots}.items()))
-            day = st.selectbox("Day", list(days), format_func=days.get)
-            opts = {s_["id"]: s_["time"] for s_ in slots if s_["date"] == day}
-            slot = st.radio("Time (IST)", list(opts), format_func=opts.get, horizontal=True)
-            st.caption(f"{c.get('duration_min') or 30}-minute video call. You can reschedule from your confirmation email.")
+            day_text, time_text, slot = day_and_time(slots, "Choose a day", "Choose a time (IST)", "book")
+            if slot:
+                html(f'''<div class="ck-sum">📅 <b>{e(day_text)}</b> at <b>{e(time_text)}</b> IST · {c.get("duration_min") or 30}-minute video call<br>
+                <span>You can reschedule from your confirmation email.</span></div>''')
         elif c["type"] == "Priority DM":
-            question = st.text_area("Your question", max_chars=240)
+            question = st.text_area("Your question", max_chars=240, placeholder="What would you like help with?")
         if st.button(f"Continue to payment · ₹{c['price']:g}", type="primary", use_container_width=True):
             if not name.strip() or "@" not in email:
                 st.error("Please enter your name and a valid email.")
+            elif c["type"] == "1:1 Call" and not slot:
+                st.error("Please choose a time.")
             else:
                 with st.spinner("Creating your secure payment…"):
                     try:
@@ -241,8 +277,10 @@ def reschedule_view(booking_id, rt):
         except Exception as ex:
             st.error(str(ex))
             return
-        st.subheader("Reschedule your call")
-        st.write(f"**{v['title']}**  \nCurrently: {v['when']}")
+        html(f'''<div class="tag">Reschedule your call</div>
+        <div class="ck-title">{e(v["title"])}</div>
+        <div class="ck-desc">Currently: {e(v["when"])}</div>
+        <hr class="ck-hr">''')
         if not v["can"]:
             st.info(v["reason"])
             return
@@ -250,17 +288,19 @@ def reschedule_view(booking_id, rt):
         if not slots:
             st.info("No other slots are open right now. Please reply to your booking email.")
             return
-        days = dict(sorted({s_["date"]: s_["day"] for s_ in slots}.items()))
-        day = st.selectbox("New day", list(days), format_func=days.get)
-        opts = {s_["id"]: s_["time"] for s_ in slots if s_["date"] == day}
-        slot = st.radio("New time (IST)", list(opts), format_func=opts.get, horizontal=True)
-        st.caption(f"{v['left']} reschedule(s) left.")
+        day_text, time_text, slot = day_and_time(slots, "New day", "New time (IST)", "resched")
+        if slot:
+            html(f'''<div class="ck-sum">📅 New time: <b>{e(day_text)}</b> at <b>{e(time_text)}</b> IST<br>
+            <span>{v["left"]} reschedule(s) left.</span></div>''')
         if st.button("Confirm new time", type="primary", use_container_width=True):
-            try:
-                res = api("reschedule", booking_id=booking_id, rt=rt, slot=slot)
-                st.success(f"Done! Your call is now {res['when']}. The calendar invite has been updated.")
-            except Exception as ex:
-                st.error(str(ex))
+            if not slot:
+                st.error("Please choose a time.")
+            else:
+                try:
+                    res = api("reschedule", booking_id=booking_id, rt=rt, slot=slot)
+                    st.success(f"Done! Your call is now {res['when']}. The calendar invite has been updated.")
+                except Exception as ex:
+                    st.error(str(ex))
 
 
 def paid_view():
