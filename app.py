@@ -57,7 +57,7 @@ try:
     LEGAL_BASE = str(st.secrets["LEGAL_BASE"]).rstrip("/")
 except Exception:
     LEGAL_BASE = ""
-LEGAL_PAGES = [("Terms and Conditions", "terms")]   # add ("Privacy Policy", "privacy"), ... as each page is built
+LEGAL_PAGES = [("Terms and Conditions", "terms"), ("Refund and Cancellation", "refund")]   # add ("Privacy Policy", "privacy"), ... as each page is built
 
 
 def legal_url(slug):
