@@ -172,6 +172,10 @@ details p{color:var(--mut);margin:12px 0 0;font-size:16px}
 .ck-hr{border:0;border-top:1px solid var(--line);margin:16px 0 0}
 .ck-sum{background:var(--alt);border:1px solid var(--line);border-radius:14px;padding:12px 16px;font-size:15px;line-height:1.6;color:var(--ink)}
 .ck-sum span{color:var(--mut);font-size:13.5px}
+.st-key-backbar{width:min(640px,calc(100% - 32px));margin:0 auto 14px}
+.st-key-backbar button{min-height:0;padding:8px 18px;border-radius:999px;border:1.5px solid var(--line);background:var(--card);color:var(--ink)}
+.st-key-backbar button:hover{border-color:var(--ink);color:var(--ink)}
+.st-key-backbar button p{margin:0;font-size:14.5px;font-weight:600;color:inherit}
 </style>
 """)
 
@@ -184,9 +188,15 @@ def footer():
     """)
 
 
+def go_home():
+    st.query_params.clear()
+    st.session_state.pop("pay_url", None)
+
+
 def mini_header():
-    html(f'<div class="w"><div class="hd"><a class="logo" href="/" target="_self">{e(NAME)}</a>'
-         f'<a class="btn sm o" href="/" target="_self">← Back to site</a></div></div>')
+    html(f'<div class="w"><div class="hd"><span class="logo">{e(NAME)}</span></div></div>')
+    with st.container(key="backbar"):
+        st.button("← Back to site", on_click=go_home, key="back_home")
 
 
 def pick_time(label, opts, key):
