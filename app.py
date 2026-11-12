@@ -217,8 +217,12 @@ def checkout_view(course_id):
             else:
                 with st.spinner("Creating your secure payment…"):
                     try:
-                        st.session_state["pay_url"] = api("checkout", course_id=c["id"], name=name, email=email,
-                                                          slot=slot, question=question)["url"]
+                        res = api("checkout", course_id=c["id"], name=name, email=email, slot=slot, question=question)
+                        if res.get("message"):          # the back office handled it without a payment (e.g. free item)
+                            st.session_state.pop("pay_url", None)
+                            st.success(res["message"])
+                        else:
+                            st.session_state["pay_url"] = res["url"]
                     except Exception as ex:
                         st.session_state.pop("pay_url", None)
                         st.error(str(ex))
