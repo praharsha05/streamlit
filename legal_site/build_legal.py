@@ -1,1 +1,164 @@
 
+"""Builds the static legal pages (crawlable HTML) into ./site/.   Run:  python build_legal.py
+Edit BUSINESS below once; every page uses it. Host the ./site folder anywhere static (e.g. Netlify Drop)."""
+import os
+from html import escape as e
+
+BUSINESS = {
+    "brand": "Analyst Shubhi",
+    "owner": "Shubhanshi Mishra",                    # legal name (as on PAN / bank account)
+    "email": "misshubhanshi@gmail.com",
+    "phone": "+91 83198 29425",
+    "address": "",                                   # TODO: fill when decided (needed for the Contact page)
+    "city": "Hyderabad, Telangana",                  # courts / jurisdiction. Confirm.
+    "site_url": "https://techwithme.streamlit.app/",
+    "updated": "12 November 2026",
+    "reschedules": 2,                                # keep in sync with Settings: max_reschedules
+    "reschedule_hours": 12,                          # keep in sync with Settings: reschedule_min_hours
+    "support_days": 7,                               # business days to fix a technical defect
+    "reply_hours": 48,                               # grievance / support reply time
+}
+B = BUSINESS
+
+TEMPLATE = """<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title} | {brand}</title><meta name="description" content="{title} for {brand}.">
+<style>
+:root{{--bg:#fffdf8;--ink:#16161a;--mut:#5d5d66;--line:#e6e0d3;--acc:#ff5b3a;--card:#fff}}
+@media(prefers-color-scheme:dark){{:root{{--bg:#121214;--ink:#f4f1ea;--mut:#a5a5ae;--line:#2e2e35;--card:#1f1f24}}}}
+*{{box-sizing:border-box}}body{{margin:0;background:var(--bg);color:var(--ink);font:17px/1.7 system-ui,-apple-system,"Segoe UI",sans-serif}}
+.w{{max-width:780px;margin:0 auto;padding:0 22px}}
+header{{padding:22px 0;border-bottom:1px solid var(--line)}}header .w{{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}}
+.logo{{font-weight:800;font-size:19px;color:var(--ink);text-decoration:none}}
+.back{{color:var(--acc);font-weight:600;text-decoration:none}}
+main{{padding:36px 0 56px}}h1{{font-size:34px;line-height:1.2;margin:0 0 6px;letter-spacing:-.02em}}
+h2{{font-size:21px;margin:32px 0 8px}}.upd{{color:var(--mut);font-size:15px;margin:0 0 24px}}
+p,li{{color:var(--ink)}}ul{{padding-left:22px}}li{{margin:4px 0}}
+a{{color:var(--acc)}}.note{{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 18px}}
+footer{{border-top:1px solid var(--line);padding:26px 0;color:var(--mut);font-size:15px}}
+footer nav{{display:flex;gap:6px 18px;flex-wrap:wrap;margin-bottom:10px}}footer a{{color:var(--mut)}}
+</style></head><body>
+<header><div class="w"><a class="logo" href="{site}">{brand}</a><a class="back" href="{site}">← Back to the store</a></div></header>
+<main><div class="w"><h1>{title}</h1><p class="upd">Last updated: {updated}</p>
+{body}
+</div></main>
+<footer><div class="w"><nav>{nav}</nav>
+<div>© {year} {brand} · {owner} · <a href="mailto:{email}">{email}</a> · {phone}</div></div></footer>
+</body></html>
+"""
+
+# ------------------------------------------------------------------ page bodies
+def terms():
+    return f"""
+<p>These Terms and Conditions apply to your use of <a href="{B['site_url']}">{e(B['site_url'])}</a> (the “Website”)
+and to anything you buy on it. The Website is operated by <b>{e(B['owner'])}</b>, trading as <b>{e(B['brand'])}</b>
+(“we”, “us”, “our”). By using the Website or paying for a product or service, you agree to these terms. If you do not
+agree, please do not proceed with your purchase.</p>
+
+<h2>1. What we sell</h2>
+<ul>
+<li><b>Digital products:</b> notes, guides, roadmaps, cheat sheets and similar learning material.</li>
+<li><b>1:1 calls:</b> one-to-one video sessions such as career guidance, mock interviews and resume reviews.</li>
+<li><b>Priority DM:</b> a written question that you send us, which we answer by email.</li>
+</ul>
+<p>Prices are shown in Indian Rupees (INR). Payments are processed securely by Razorpay. We do not see or store your
+card, UPI or bank details.</p>
+
+<h2>2. Digital delivery</h2>
+<p>Digital products are delivered electronically, as a download or access link sent to the email address you enter at
+checkout, once your payment is confirmed. No physical item is shipped. You are responsible for entering a valid email
+address and for having compatible software, hardware and internet access to open the files. If you do not receive your
+email within a short time, check your Spam or Promotions folder, then contact us.</p>
+
+<h2>3. 1:1 calls and Priority DM</h2>
+<ul>
+<li>You choose a time slot at checkout. The slot is confirmed once payment succeeds, and a calendar invitation and
+meeting link are sent to your email.</li>
+<li><b>Rescheduling:</b> you may reschedule a booked call up to <b>{B['reschedules']} times</b>, using the link in your
+confirmation email, until <b>{B['reschedule_hours']} hours</b> before the call starts.</li>
+<li>If you do not attend your call at the scheduled time, or reschedule later than the period above, the session is
+treated as delivered and is not refunded or rebooked.</li>
+<li>If we need to cancel or change a call, we will reschedule it to a time that works for you at no extra charge.</li>
+<li>Sessions are for guidance and learning only. Please do not record a session without our written permission.</li>
+<li>For Priority DM, we aim to reply by email within the time shown on the product page. Replies may take longer
+during holidays or illness.</li>
+</ul>
+
+<h2>4. License and permitted use</h2>
+<p>When you buy a digital product, you receive a non-exclusive, non-transferable, revocable license to use it for your
+own personal learning or internal work. You agree <b>not</b> to:</p>
+<ul>
+<li>resell, redistribute, rent, lease, sublicense or share the files or access links with other people;</li>
+<li>claim the product, in whole or in part, as your own work;</li>
+<li>upload or distribute it on any public file-sharing website, torrent or third-party marketplace.</li>
+</ul>
+<p>We may withdraw access if these terms are broken.</p>
+
+<h2>5. Intellectual property</h2>
+<p>All content, text, templates, code, graphics and files remain the property of {e(B['owner'])} / {e(B['brand'])}.
+Buying a product gives you a limited license to use it under these terms, not ownership of the copyright.</p>
+
+<h2>6. Refunds and cancellation</h2>
+<p>Because digital products are delivered immediately and cannot be taken back, and because a call slot is reserved
+for you alone, <b>all sales are final</b>. We do not offer refunds, returns or exchanges once a purchase is completed
+and access or a slot has been given. Calls can be <b>rescheduled</b> as described in section 3.</p>
+<p>By completing your purchase, you acknowledge that you receive immediate access to the content. We will make a
+refund only in these exceptional cases:</p>
+<ul>
+<li>a verified duplicate payment for the same item;</li>
+<li>a technical problem that stops the file from working as described, which our support cannot fix within
+<b>{B['support_days']} business days</b> of your request;</li>
+<li>a product that is materially different from its description on the Website.</li>
+</ul>
+<p>Change of mind, accidental purchases, lack of technical knowledge, and device or software incompatibility are not
+grounds for a refund. Approved refunds go back to the original payment method, and your bank may take several
+business days to show the credit. See our Refund and Cancellation Policy for details.</p>
+
+<h2>7. No guarantee of results</h2>
+<p>Our products and sessions share knowledge, experience and opinions to help you in your data analytics career. We do
+not promise a job, an interview call, a salary or any particular outcome. Your results depend on your own effort and
+circumstances.</p>
+
+<h2>8. Limitation of liability</h2>
+<p>Products and services are provided “as is” and “as available”, without warranties of any kind, express or implied.
+To the fullest extent allowed by law, {e(B['owner'])} / {e(B['brand'])} is not liable for any indirect, incidental or
+consequential loss from the use of, or inability to use, our products or services. Our total liability for any claim
+is limited to the amount you paid for the item concerned.</p>
+
+<h2>9. Changes to these terms</h2>
+<p>We may update these terms from time to time. The updated version applies from the date it is posted on this page,
+shown as “Last updated” above. Purchases are governed by the terms in force when you paid.</p>
+
+<h2>10. Governing law</h2>
+<p>These terms are governed by the laws of India. Any dispute is subject to the exclusive jurisdiction of the courts at
+{e(B['city'])}.</p>
+
+<h2>11. Contact and grievances</h2>
+<p>For support or any complaint, contact us and we will reply within {B['reply_hours']} hours on working days:</p>
+<ul>
+<li><b>Name:</b> {e(B['owner'])}</li>
+<li><b>Email:</b> <a href="mailto:{B['email']}">{e(B['email'])}</a></li>
+<li><b>Phone:</b> {e(B['phone'])}</li>
+<li><b>Website:</b> <a href="{B['site_url']}">{e(B['site_url'])}</a></li>
+</ul>
+"""
+
+PAGES = {  # slug -> (title, body builder). Pages are added one by one.
+    "terms": ("Terms and Conditions", terms),
+}
+
+# ------------------------------------------------------------------ build
+def build(out="site"):
+    os.makedirs(out, exist_ok=True)
+    nav = "".join(f'<a href="{s}.html">{e(t)}</a>' for s, (t, _) in PAGES.items())
+    for slug, (title, body) in PAGES.items():
+        from datetime import datetime
+        html = TEMPLATE.format(title=e(title), brand=e(B["brand"]), site=B["site_url"], updated=B["updated"],
+                               body=body(), nav=nav, year=datetime.now().year, owner=e(B["owner"]),
+                               email=B["email"], phone=e(B["phone"]))
+        with open(os.path.join(out, f"{slug}.html"), "w", encoding="utf-8") as f:
+            f.write(html)
+        print("built", f"{out}/{slug}.html")
+
+if __name__ == "__main__":
+    build()
