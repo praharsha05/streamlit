@@ -51,6 +51,23 @@ def load_slots(course_id):
 
 FILTERS = ["All Services", "1:1 Call", "Priority DM", "Digital Product"]
 
+# ----- Legal pages (static site, see legal_site/). Set LEGAL_BASE in Streamlit secrets once they are hosted:
+#       LEGAL_BASE = "https://your-legal-site.netlify.app"
+try:
+    LEGAL_BASE = str(st.secrets["LEGAL_BASE"]).rstrip("/")
+except Exception:
+    LEGAL_BASE = ""
+LEGAL_PAGES = [("Terms and Conditions", "terms")]   # add ("Privacy Policy", "privacy"), ... as each page is built
+
+
+def legal_url(slug):
+    return f"{LEGAL_BASE}/{slug}.html" if LEGAL_BASE else "#"
+
+
+def legal_links():
+    return "".join(f'<a href="{legal_url(sl)}" target="_blank" rel="noopener">{e(lb)}</a>' for lb, sl in LEGAL_PAGES)
+
+
 ABOUT = """Hi, I’m Shubhanshi, a Data Analyst with 5+ years of industry experience working with global clients like Apple, ServiceNow, AT&T and Infosys. I specialize in data analysis, dashboards, reporting, and business insights using tools like SQL, Power BI, Excel, and Snowflake. Over the years, I’ve worked on real client projects, partner analytics, and business reporting solutions that helped teams make better data-driven decisions."""
 ABOUT_FOR = ["A beginner who wants to start a career in Data Analytics",
              "Someone preparing for data analyst interviews",
@@ -183,7 +200,7 @@ def footer():
     html(f"""
     <div class="ft" style="margin-top:80px"><div class="w"><div class="fb">
     <span>© {datetime.now().year} {e(NAME)}. All rights reserved.</span>
-    <span><a href="{INSTAGRAM}" target="_blank">Instagram</a><a href="#">Privacy Policy</a><a href="#">Terms</a><a href="#">Refund Policy</a></span>
+    <span><a href="{INSTAGRAM}" target="_blank">Instagram</a>{legal_links()}</span>
     </div></div></div>
     """)
 
@@ -255,6 +272,9 @@ def checkout_view(course_id):
                 <span>You can reschedule from your confirmation email.</span></div>''')
         elif c["type"] == "Priority DM":
             question = st.text_area("Your question", max_chars=240, placeholder="What would you like help with?")
+        agree = [(lb, sl) for lb, sl in LEGAL_PAGES if sl in ("terms", "refund")]
+        if LEGAL_BASE and agree:
+            st.caption("By continuing you agree to our " + " and ".join(f"[{lb}]({legal_url(sl)})" for lb, sl in agree) + ".")
         if st.button(f"Continue to payment · ₹{c['price']:g}", type="primary", use_container_width=True):
             if not name.strip() or "@" not in email:
                 st.error("Please enter your name and a valid email.")
